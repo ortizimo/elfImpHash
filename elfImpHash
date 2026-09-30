@@ -1,0 +1,55 @@
+#!/usr/bin/env python3 
+
+# name:	elfImpHash
+# author:	ortizimo
+# date:	20260928
+# version:	1.0
+# desc:	works similarly to PE imphash by tracking ELF import table functions
+
+import sys
+from hashlib import md5
+
+if len(sys.argv) < 2:
+	print(f"[-] Error: Missing file argument.")
+	print(f"Usage: elfImpHash {sys.argv[0]} <file>")
+	sys.exit(1)
+	
+TARGET_FILE = sys.argv[1] 
+	
+try:
+	import lief	# make sure you have it installed
+	elf = lief.parse(TARGET_FILE)
+
+	if elf is None:
+		print(f"[-] Error: Could not parse '{TARGET_FILE}'. Invalid ELF binary.")
+		sys.exit(1)
+				
+	imported_funcs = elf.imported_functions
+	
+	if not imported_funcs:
+		print(f"[*] Warning: No imported functions found in {TARGET_FILE}.")
+		impash = md5("".encode()).hexdigest()
+	else:
+		func_names = [func.name for func in imported_funcs]
+		# sort plain text strings
+		joined_funcs = ",".join(sorted(func_names))
+		impash = md5(joined_funcs.encode()).hexdigest()
+		
+	print(f"[+] File:	{TARGET_FILE}")
+	print(f"[+] Imphash:	{impash}")
+
+	# md5sum 
+	file_hash = md5()
+	with open(TARGET_FILE, "rb") as f:
+		for chunk in iter(lambda: f.read(4096), b""):
+			file_hash.update(chunk)
+	entire_file_md5 = file_hash.hexdigest()
+	print(f"[+] MD5: 	{entire_file_md5}")
+
+
+except FileNotFoundError:
+	print(f"[-] Error: The file '{TARGET_FILE}' was not found.")
+except ImportError:
+	print(f"[-] Error: The 'lief' library is not installed. Run: pip install lief")
+except Exception as e:
+	print(f"[-] Unexpected Error: {e}")
